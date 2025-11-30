@@ -1,0 +1,21 @@
+# Build artifacts
+build/
+*.o
+*.a
+
+# Editor files
+*.swp
+*~
+.vscode/
+.idea/
+
+# Output files
+output/
+*.vtk
+
+# CodeQL
+_codeql_detected_source_root
+
+# Python
+__pycache__/
+*.pyc
