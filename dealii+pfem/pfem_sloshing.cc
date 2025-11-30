@@ -63,6 +63,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <filesystem>
 
 namespace PFEM2D
 {
@@ -174,7 +175,7 @@ namespace PFEM2D
     Point<2> velocity;
     Point<2> acceleration;
     double pressure;
-    int boundary_type; // 0: free, 1: wall, 2: free surface
+    int boundary_type; // 0: interior, 1: wall, 2: free surface
     
     Particle()
       : position()
@@ -267,10 +268,8 @@ namespace PFEM2D
     , remesh_count(0)
     , output_directory("output")
   {
-    // Create output directory
-    std::string cmd = "mkdir -p " + output_directory;
-    int result = system(cmd.c_str());
-    (void)result; // Suppress unused result warning
+    // Create output directory using C++17 filesystem
+    std::filesystem::create_directories(output_directory);
   }
 
   // Initialize particles based on initial water configuration
@@ -457,9 +456,9 @@ namespace PFEM2D
   // Compute element shape function derivatives
   void PFEMSloshing::compute_element_data()
   {
-    for (auto &elem : elements)
+    for (unsigned int e = 0; e < elements.size(); ++e)
     {
-      compute_shape_derivatives(static_cast<unsigned int>(&elem - &elements[0]));
+      compute_shape_derivatives(e);
     }
   }
 

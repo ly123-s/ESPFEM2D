@@ -41,6 +41,8 @@
 #include <iomanip>
 #include <sstream>
 #include <limits>
+#include <filesystem>
+#include <random>
 
 namespace PFEM2D
 {
@@ -400,10 +402,8 @@ namespace PFEM2D
     , remesh_count(0)
     , output_directory("output")
   {
-    // Create output directory
-    std::string cmd = "mkdir -p " + output_directory;
-    int result = system(cmd.c_str());
-    (void)result;
+    // Create output directory using C++17 filesystem
+    std::filesystem::create_directories(output_directory);
   }
 
   // Initialize particles based on initial water configuration
@@ -421,7 +421,9 @@ namespace PFEM2D
     int ny = static_cast<int>(std::ceil(water_H / h));
     
     // Add small perturbation to avoid degenerate configurations
-    std::srand(42); // Fixed seed for reproducibility
+    // Using C++11 random number facilities
+    std::mt19937 rng(42); // Fixed seed for reproducibility
+    std::uniform_real_distribution<double> dist(-0.5, 0.5);
     
     for (int j = 0; j <= ny; ++j)
     {
@@ -430,9 +432,9 @@ namespace PFEM2D
         double x = i * h;
         double y = j * h;
         
-        // Small random perturbation (0.1% of mesh size)
-        double px = (std::rand() / static_cast<double>(RAND_MAX) - 0.5) * h * 0.001;
-        double py = (std::rand() / static_cast<double>(RAND_MAX) - 0.5) * h * 0.001;
+        // Small random perturbation (0.1% of mesh size) using C++11 random
+        double px = dist(rng) * h * 0.001;
+        double py = dist(rng) * h * 0.001;
         x += px;
         y += py;
         
