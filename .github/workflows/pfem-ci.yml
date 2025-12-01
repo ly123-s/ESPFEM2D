@@ -16,6 +16,7 @@ jobs:
     # Using the v9.4.2-focal release with MPI support
     container:
       image: dealii/dealii:v9.4.2-focal  # deal.II 9.4.2 + Ubuntu 20.04
+      options: --user root  # Required for GitHub Actions checkout permissions
 
     steps:
       - name: Checkout repository
