@@ -78,24 +78,30 @@ namespace PFEM2D
     double wall_friction;
     double damping;
     
+    // Sinusoidal initial surface parameters
+    double sine_amplitude;    // Amplitude of the initial sinusoidal wave
+    double sine_wavelength;   // Wavelength of the initial sinusoidal wave
+    
     PFEMParameters()
       : density(1000.0)
       , viscosity(0.001)
       , gravity_x(0.0)
       , gravity_y(-9.81)
-      , dt(0.001)
-      , total_time(0.1)
-      , output_interval(50)
+      , dt(0.0005)
+      , total_time(0.5)
+      , output_interval(100)
       , tank_length(1.0)
       , tank_height(0.6)
-      , initial_water_length(0.4)
-      , initial_water_height(0.3)
+      , initial_water_length(1.0)    // Full tank width for sloshing
+      , initial_water_height(0.3)    // Mean water height
       , initial_tilt_angle(0.0)
-      , mesh_size(0.04)
-      , alpha_shape_radius_factor(1.2)
-      , remesh_threshold(10.0)
+      , mesh_size(0.025)
+      , alpha_shape_radius_factor(1.3)
+      , remesh_threshold(8.0)
       , wall_friction(0.0)
       , damping(0.0)
+      , sine_amplitude(0.05)         // 5cm amplitude
+      , sine_wavelength(1.0)         // One full wavelength across tank
     {}
     
     void declare_parameters(ParameterHandler &prm)
@@ -117,6 +123,8 @@ namespace PFEM2D
       prm.declare_entry("RemeshThreshold", "10.0", Patterns::Double(0.0));
       prm.declare_entry("WallFriction", "0.0", Patterns::Double(0.0));
       prm.declare_entry("Damping", "0.0", Patterns::Double(0.0));
+      prm.declare_entry("SineAmplitude", "0.05", Patterns::Double(0.0));
+      prm.declare_entry("SineWavelength", "1.0", Patterns::Double(0.0));
     }
     
     void parse_parameters(ParameterHandler &prm)
@@ -138,6 +146,8 @@ namespace PFEM2D
       remesh_threshold = prm.get_double("RemeshThreshold");
       wall_friction = prm.get_double("WallFriction");
       damping = prm.get_double("Damping");
+      sine_amplitude = prm.get_double("SineAmplitude");
+      sine_wavelength = prm.get_double("SineWavelength");
     }
   };
 
@@ -406,53 +416,63 @@ namespace PFEM2D
     std::filesystem::create_directories(output_directory);
   }
 
-  // Initialize particles based on initial water configuration
+  // Initialize particles based on initial water configuration with sinusoidal free surface
   void PFEMSloshing::initialize_particles()
   {
     particles.clear();
     
     const double h = parameters.mesh_size;
-    const double water_L = parameters.initial_water_length;
-    const double water_H = parameters.initial_water_height;
-    const double tilt = parameters.initial_tilt_angle * M_PI / 180.0;
+    const double tank_L = parameters.tank_length;
+    const double water_H = parameters.initial_water_height;  // Mean water height
+    const double amp = parameters.sine_amplitude;            // Wave amplitude
+    const double wavelength = parameters.sine_wavelength;    // Wavelength
+    const double k = 2.0 * M_PI / wavelength;               // Wave number
     
-    // Generate particles in a grid pattern
-    int nx = static_cast<int>(std::ceil(water_L / h));
-    int ny = static_cast<int>(std::ceil(water_H / h));
+    // Generate particles in a grid pattern with sinusoidal top surface
+    // The water surface follows: y_surface(x) = water_H + amp * sin(k * x)
+    
+    int nx = static_cast<int>(std::ceil(tank_L / h));
     
     // Add small perturbation to avoid degenerate configurations
-    // Using C++11 random number facilities
     std::mt19937 rng(42); // Fixed seed for reproducibility
     std::uniform_real_distribution<double> dist(-0.5, 0.5);
     
-    for (int j = 0; j <= ny; ++j)
+    for (int i = 0; i <= nx; ++i)
     {
-      for (int i = 0; i <= nx; ++i)
+      double x = i * h;
+      
+      // Compute the local water surface height at this x position
+      double local_surface_height = water_H + amp * std::sin(k * x);
+      
+      // Ensure we don't go below zero or exceed some reasonable height
+      local_surface_height = std::max(h, local_surface_height);
+      
+      // Number of vertical particles at this x-column
+      int ny = static_cast<int>(std::ceil(local_surface_height / h));
+      
+      for (int j = 0; j <= ny; ++j)
       {
-        double x = i * h;
         double y = j * h;
         
-        // Small random perturbation (0.1% of mesh size) using C++11 random
-        double px = dist(rng) * h * 0.001;
-        double py = dist(rng) * h * 0.001;
-        x += px;
-        y += py;
-        
-        // Apply initial tilt if any
-        if (std::abs(tilt) > 1e-10)
+        // Only add particle if it's below the local surface height
+        if (y <= local_surface_height + h * 0.1)
         {
-          double x_new = x * std::cos(tilt) - y * std::sin(tilt);
-          double y_new = x * std::sin(tilt) + y * std::cos(tilt);
-          x = x_new;
-          y = y_new;
+          // Small random perturbation (0.1% of mesh size) for numerical stability
+          double px = dist(rng) * h * 0.001;
+          double py = dist(rng) * h * 0.001;
+          x += px;
+          y += py;
+          
+          // Offset from walls
+          double final_x = std::min(std::max(x + h * 0.3, h * 0.3), tank_L - h * 0.3);
+          double final_y = y + h * 0.3;
+          
+          Particle p(Point<2>(final_x, final_y));
+          particles.push_back(p);
+          
+          // Reset x for next iteration (remove perturbation)
+          x = i * h;
         }
-        
-        // Offset from walls
-        x += h * 0.5;
-        y += h * 0.5;
-        
-        Particle p(Point<2>(x, y));
-        particles.push_back(p);
       }
     }
     
@@ -467,7 +487,10 @@ namespace PFEM2D
     nodal_dNdx.resize(n_particles);
     nodal_dNdy.resize(n_particles);
     
-    std::cout << "Initialized " << n_particles << " particles" << std::endl;
+    std::cout << "Initialized " << n_particles << " particles with sinusoidal surface" << std::endl;
+    std::cout << "  Mean water height: " << water_H << " m" << std::endl;
+    std::cout << "  Wave amplitude: " << amp << " m" << std::endl;
+    std::cout << "  Wavelength: " << wavelength << " m" << std::endl;
   }
 
   // Generate mesh using Delaunay triangulation
@@ -1052,8 +1075,9 @@ namespace PFEM2D
     std::cout << "Based on ESPFEM2D methodology" << std::endl;
     std::cout << "\nParameters:" << std::endl;
     std::cout << "  Tank: " << parameters.tank_length << " x " << parameters.tank_height << " m" << std::endl;
-    std::cout << "  Initial water: " << parameters.initial_water_length << " x " 
-              << parameters.initial_water_height << " m" << std::endl;
+    std::cout << "  Mean water height: " << parameters.initial_water_height << " m" << std::endl;
+    std::cout << "  Initial sine amplitude: " << parameters.sine_amplitude << " m" << std::endl;
+    std::cout << "  Initial sine wavelength: " << parameters.sine_wavelength << " m" << std::endl;
     std::cout << "  Mesh size: " << parameters.mesh_size << " m" << std::endl;
     std::cout << "  Time step: " << parameters.dt << " s" << std::endl;
     std::cout << "  Total time: " << parameters.total_time << " s" << std::endl;
