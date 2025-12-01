@@ -1,0 +1,56 @@
+name: PFEM2D build and run (deal.II official image)
+
+on:
+  push:
+    branches: [ main, master, PFEM ]
+  pull_request:
+    branches: [ main, master, PFEM ]
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    # The entire job runs inside the deal.II official Docker image
+    # Using the v9.4.2-focal release with MPI support
+    container:
+      image: dealii/dealii:v9.4.2-focal  # deal.II 9.4.2 + Ubuntu 20.04
+      options: --user root  # Required for GitHub Actions checkout permissions
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # The official image already has cmake, ninja, compilers, etc. installed
+      # No additional apt-get installation needed unless extra packages are required
+
+      - name: Configure PFEM example
+        working-directory: ./dealii+pfem
+        run: |
+          mkdir -p build
+          cd build
+          # In deal.II Docker images, DEAL_II_DIR env var should be set
+          # If not, CMake's find_package will search standard paths
+          if [ -n "$DEAL_II_DIR" ]; then
+            echo "Using DEAL_II_DIR=$DEAL_II_DIR"
+            cmake -G Ninja -DDEAL_II_DIR="$DEAL_II_DIR" ..
+          else
+            echo "DEAL_II_DIR not set, trying find_package discovery"
+            cmake -G Ninja ..
+          fi
+
+      - name: Build PFEM example
+        working-directory: ./dealii+pfem/build
+        run: |
+          ninja -v
+
+      - name: Run pfem_sloshing_simple
+        working-directory: ./dealii+pfem/build
+        run: |
+          # Run the simplified version with default parameters
+          ./pfem_sloshing_simple
+          echo "pfem_sloshing_simple finished."
+          ls -R
+          # Verify that the first VTK output file was generated
+          test -f output/sloshing_000000.vtk
