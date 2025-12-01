@@ -42,10 +42,6 @@ DEAL_II_INITIALIZE_CACHED_VARIABLES()
 SET(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Add executable for the main PFEM sloshing simulation
-ADD_EXECUTABLE(pfem_sloshing pfem_sloshing.cc)
-DEAL_II_SETUP_TARGET(pfem_sloshing)
-
 # Add executable for the simplified version (no CGAL dependency)
 ADD_EXECUTABLE(pfem_sloshing_simple pfem_sloshing_simple.cc)
 DEAL_II_SETUP_TARGET(pfem_sloshing_simple)
@@ -54,11 +50,13 @@ DEAL_II_SETUP_TARGET(pfem_sloshing_simple)
 FIND_PACKAGE(CGAL QUIET)
 IF(CGAL_FOUND)
   MESSAGE(STATUS "CGAL found: ${CGAL_VERSION}")
+  # Add executable for the main PFEM sloshing simulation (requires CGAL)
+  ADD_EXECUTABLE(pfem_sloshing pfem_sloshing.cc)
+  DEAL_II_SETUP_TARGET(pfem_sloshing)
   TARGET_LINK_LIBRARIES(pfem_sloshing CGAL::CGAL)
   TARGET_COMPILE_DEFINITIONS(pfem_sloshing PRIVATE USE_CGAL=1)
 ELSE()
-  MESSAGE(WARNING "CGAL not found. Using simplified triangulation in pfem_sloshing.")
-  TARGET_COMPILE_DEFINITIONS(pfem_sloshing PRIVATE USE_CGAL=0)
+  MESSAGE(WARNING "CGAL not found. pfem_sloshing target will not be built.")
 ENDIF()
 
 # Custom target for running the simulation
@@ -76,9 +74,14 @@ ADD_CUSTOM_TARGET(clean-output
 )
 
 # Install targets
-INSTALL(TARGETS pfem_sloshing pfem_sloshing_simple
+INSTALL(TARGETS pfem_sloshing_simple
   RUNTIME DESTINATION bin
 )
+IF(CGAL_FOUND)
+  INSTALL(TARGETS pfem_sloshing
+    RUNTIME DESTINATION bin
+  )
+ENDIF()
 
 # Print configuration summary
 MESSAGE(STATUS "")

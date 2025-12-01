@@ -2,9 +2,9 @@ name: PFEM2D build and run (deal.II official image)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, PFEM ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, PFEM ]
 
 jobs:
   build-and-run:
@@ -27,10 +27,15 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          # deal.II 官方镜像通常把 CMake config 装在 /usr/lib/cmake/deal.II
-          cmake -G Ninja \
-            -DDEAL_II_DIR=/usr/lib/cmake/deal.II \
-            ..
+          # In deal.II Docker images, DEAL_II_DIR env var should be set
+          # If not, CMake's find_package will search standard paths
+          if [ -n "$DEAL_II_DIR" ]; then
+            echo "Using DEAL_II_DIR=$DEAL_II_DIR"
+            cmake -G Ninja -DDEAL_II_DIR="$DEAL_II_DIR" ..
+          else
+            echo "DEAL_II_DIR not set, trying find_package discovery"
+            cmake -G Ninja ..
+          fi
 
       - name: Build PFEM example
         working-directory: ./dealii+pfem/build
