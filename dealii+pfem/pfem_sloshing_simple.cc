@@ -426,7 +426,8 @@ namespace PFEM2D
     const double water_H = parameters.initial_water_height;  // Mean water height
     const double amp = parameters.sine_amplitude;            // Wave amplitude
     const double wavelength = parameters.sine_wavelength;    // Wavelength
-    const double k = 2.0 * M_PI / wavelength;               // Wave number
+    const double pi = std::acos(-1.0);                       // Portable pi definition
+    const double k = 2.0 * pi / wavelength;                  // Wave number
     
     // Generate particles in a grid pattern with sinusoidal top surface
     // The water surface follows: y_surface(x) = water_H + amp * sin(k * x)
@@ -439,10 +440,10 @@ namespace PFEM2D
     
     for (int i = 0; i <= nx; ++i)
     {
-      double x = i * h;
+      const double base_x = i * h;
       
       // Compute the local water surface height at this x position
-      double local_surface_height = water_H + amp * std::sin(k * x);
+      double local_surface_height = water_H + amp * std::sin(k * base_x);
       
       // Ensure we don't go below zero or exceed some reasonable height
       local_surface_height = std::max(h, local_surface_height);
@@ -452,26 +453,21 @@ namespace PFEM2D
       
       for (int j = 0; j <= ny; ++j)
       {
-        double y = j * h;
+        const double base_y = j * h;
         
         // Only add particle if it's below the local surface height
-        if (y <= local_surface_height + h * 0.1)
+        if (base_y <= local_surface_height + h * 0.1)
         {
-          // Small random perturbation (0.1% of mesh size) for numerical stability
-          double px = dist(rng) * h * 0.001;
-          double py = dist(rng) * h * 0.001;
-          x += px;
-          y += py;
+          // Offset from walls first (using grid positions)
+          double final_x = std::min(std::max(base_x + h * 0.3, h * 0.3), tank_L - h * 0.3);
+          double final_y = base_y + h * 0.3;
           
-          // Offset from walls
-          double final_x = std::min(std::max(x + h * 0.3, h * 0.3), tank_L - h * 0.3);
-          double final_y = y + h * 0.3;
+          // Then apply small random perturbation (0.1% of mesh size) for numerical stability
+          final_x += dist(rng) * h * 0.001;
+          final_y += dist(rng) * h * 0.001;
           
           Particle p(Point<2>(final_x, final_y));
           particles.push_back(p);
-          
-          // Reset x for next iteration (remove perturbation)
-          x = i * h;
         }
       }
     }
