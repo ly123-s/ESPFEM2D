@@ -9,18 +9,20 @@ on:
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
-    # 整个 job 在 deal.II 官方 Docker 镜像中执行
-    # 这里用的是一个通用的带 MPI 的 release 镜像，你可以按需换版本
+    # The entire job runs inside the deal.II official Docker image
+    # Using the v9.4.2-focal release with MPI support
     container:
-      image: dealii/dealii:v9.4.2-focal  # 示例：deal.II 9.4.2 + Ubuntu 20.04
+      image: dealii/dealii:v9.4.2-focal  # deal.II 9.4.2 + Ubuntu 20.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 在官方镜像里，常用工具已经装好（cmake, ninja, compilers 等）
-      # 一般不需要再 apt-get 安装，如果需要额外的包可以在这里加
+      # The official image already has cmake, ninja, compilers, etc. installed
+      # No additional apt-get installation needed unless extra packages are required
 
       - name: Configure PFEM example
         working-directory: ./dealii+pfem
@@ -45,9 +47,9 @@ jobs:
       - name: Run pfem_sloshing_simple
         working-directory: ./dealii+pfem/build
         run: |
-          # 使用默认参数运行简化版本
+          # Run the simplified version with default parameters
           ./pfem_sloshing_simple
           echo "pfem_sloshing_simple finished."
           ls -R
-          # 检查是否生成了第一个 VTK 输出文件
+          # Verify that the first VTK output file was generated
           test -f output/sloshing_000000.vtk
