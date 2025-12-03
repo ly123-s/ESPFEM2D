@@ -1,5 +1,6 @@
 # Build directories
 ESPFEM2D_dealii/build/
+ESPFEM2D_dealii/_codeql_build_dir/
 
 # Output directories
 output/
@@ -24,3 +25,6 @@ output/
 # System files
 .DS_Store
 Thumbs.db
+
+# CodeQL artifacts
+_codeql_detected_source_root
