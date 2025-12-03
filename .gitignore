@@ -1,0 +1,26 @@
+# Build directories
+ESPFEM2D_dealii/build/
+
+# Output directories
+output/
+*.vtk
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Compiled files
+*.o
+*.a
+*.so
+*.exe
+
+# MATLAB generated files
+*.mat
+*.asv
+
+# System files
+.DS_Store
+Thumbs.db
