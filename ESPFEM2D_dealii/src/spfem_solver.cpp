@@ -24,6 +24,7 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #else
 // Fallback for systems without filesystem
+#include <cerrno>
 #include <sys/stat.h>
 #include <sys/types.h>
 namespace fs {

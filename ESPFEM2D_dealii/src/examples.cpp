@@ -20,7 +20,6 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
-#include <filesystem>
 
 namespace ESPFEM2D
 {
@@ -382,7 +381,6 @@ namespace ESPFEM2D
         for (int in = 0; in < par.node_cnt; ++in)
         {
             double curx = nodal.coordinates[in][0];
-            double cury = nodal.coordinates[in][1];
             
             // Left edge fully fixed, right edge released for collapse
             if (curx > 4.0 - 1e-6)

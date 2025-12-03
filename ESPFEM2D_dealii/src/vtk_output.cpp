@@ -12,6 +12,7 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <cerrno>
 
 // Filesystem support - use experimental if standard not available
 #if __has_include(<filesystem>)
@@ -21,13 +22,19 @@ namespace fs = std::filesystem;
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #else
-// Fallback for systems without filesystem
+// Fallback for systems without filesystem - use POSIX mkdir
 #include <sys/stat.h>
 #include <sys/types.h>
 namespace fs {
     inline void create_directories(const std::string& path) {
-        std::string cmd = "mkdir -p \"" + path + "\"";
-        system(cmd.c_str());
+        // Simple recursive directory creation using mkdir
+        std::string current;
+        for (size_t i = 0; i < path.size(); ++i) {
+            current += path[i];
+            if (path[i] == '/' || i == path.size() - 1) {
+                mkdir(current.c_str(), 0755);
+            }
+        }
     }
 }
 #endif
